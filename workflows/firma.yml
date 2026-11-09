@@ -1,0 +1,52 @@
+name: Firma digital con Cosign
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  firma:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Descargar repositorio
+        uses: actions/checkout@v4
+
+      - name: Instalar Cosign
+        uses: sigstore/cosign-installer@v3.8.2
+
+      - name: Construir artefacto
+        run: |
+          echo "Software de prueba - Laboratorio Sigstore" > software.txt
+          echo "Version 1.0" >> software.txt
+
+      - name: Crear procedencia
+        run: |
+          echo '{"artifact":"software.txt","repository":"${{ github.repository }}","commit":"${{ github.sha }}","builder":"GitHub Actions","workflow":".github/workflows/firma.yml"}' > provenance.json
+
+      - name: Firmar artefacto
+        run: |
+          cosign sign-blob software.txt \
+            --bundle software.sigstore.json \
+            --yes
+
+      - name: Firmar procedencia
+        run: |
+          cosign sign-blob provenance.json \
+            --bundle provenance.sigstore.json \
+            --yes
+
+      - name: Guardar resultados
+        uses: actions/upload-artifact@v4
+        with:
+          name: resultados-sigstore
+          path: |
+            software.txt
+            software.sigstore.json
+            provenance.json
+            provenance.sigstore.json
